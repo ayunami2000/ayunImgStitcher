@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>ayunImgStitcher</title>
+		<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+		<style>
+			#list img {
+				width: 5em;
+			}
+			#download {
+				text-decoration: underline;
+			}
+		</style>
+	</head>
+	<body>
+		<i>"Hey, at least it's better than those App Store apps with in-app purchases"</i>
+		<br/>
+		<br/>
+		Add an image: <input id="upload" type="file" accept="image/*" multiple/>
+		<br/>
+		<a id="download">Download</a>
+		<br/>
+		Images (click to add)
+		<br/>
+		<div id="list"></div>
+		<br/>
+		<button id="newline">Add line break</button>
+		<br/>
+		<svg id="activesvg" x="0" y="0" width="1" height="1">
+			<foreignObject id="active" x="0" y="0" width="1" height="1" style="font-size: 0; line-height: 0;"></foreignObject>
+		</svg>
+		<script type="text/javascript">
+			const upload = document.getElementById("upload"),
+				listbox = document.getElementById("list"),
+				newline = document.getElementById("newline"),
+				active = document.getElementById("active"),
+				activesvg = document.getElementById("activesvg"),
+				download = document.getElementById("download"),
+				canvas = document.createElement("canvas"),
+				ctx = canvas.getContext("2d");
+			
+			download.onmouseover = function() {
+				const img = document.createElement("img");
+				img.onload = function() {
+					canvas.width = img.naturalWidth;
+					canvas.height = img.naturalHeight;
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					ctx.drawImage(img, 0, 0);
+					canvas.toBlob(b => download.href = URL.createObjectURL(b), "image/png");
+				};
+				img.src = "data:image/svg+xml;base64," + btoa(new XMLSerializer().serializeToString(activesvg));
+			};
+
+			download.onmouseout = function() {
+				download.removeAttribute("href");
+			};
+			
+			function fixActiveWidthHeight() {
+				if (!active.hasChildNodes()) {
+					active.setAttribute("width", 1);
+					active.setAttribute("height", 1);
+					activesvg.setAttribute("width", 1);
+					activesvg.setAttribute("height", 1);
+					return;
+				}
+				let w = [ 0 ],
+					h = [ 0 ];
+				for (let n of active.childNodes) {
+					if (n.nodeName == "BR") {
+						w.push(0);
+						h.push(0);
+					} else if (n.nodeName == "IMG") {
+						w[w.length - 1] += n.clientWidth;
+						if (n.clientHeight > h[h.length - 1]) {
+							h[h.length - 1] = n.clientHeight;
+						}
+					}
+				}
+
+				w = Math.max(...w);
+				h = h.reduce((a, b) => a + b, 0);
+
+				active.setAttribute("width", w);
+				active.setAttribute("height", h);
+				activesvg.setAttribute("width", w);
+				activesvg.setAttribute("height", h);
+			}
+			
+			function addImage(blob) {
+				const img = document.createElement("img");
+				img.onload = function() {
+					listbox.appendChild(img);
+				};
+				img.onclick = function() {
+					if (img.parentElement == active) {
+						active.removeChild(img);
+						while (active.hasChildNodes() && active.lastChild.nodeName == "BR") {
+							active.removeChild(active.lastChild);
+						}
+						fixActiveWidthHeight();
+						listbox.appendChild(img);
+					} else {
+						listbox.removeChild(img);
+						active.appendChild(img);
+						fixActiveWidthHeight();
+					}
+				};
+
+				const reader = new FileReader();
+
+				reader.addEventListener("load", () => {
+					img.src = reader.result;
+				}, false);
+
+				reader.readAsDataURL(blob);
+			}
+
+			newline.onclick = function() {
+				if (!active.hasChildNodes()) return;
+				if (active.lastChild.nodeName == "BR") return;
+				active.appendChild(document.createElement("br"));
+			};
+			
+			upload.onchange = function() {
+				if (upload.files.length <= 0) return;
+				for (let file of upload.files) {
+					addImage(file);
+				}
+				upload.value = "";
+			};
+		</script>
+	</body>
+</html>
